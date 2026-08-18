@@ -8,30 +8,35 @@ import {
   ArrowUpRight, 
   ShieldAlert, 
   Zap,
-  Gauge
+  Gauge,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import { useWasteData } from '../context/WasteDataContext';
 
 export default function KpiCards() {
-  const { bins, criticalBins, activeRoute, alerts } = useWasteData();
+  const { bins, criticalBins, allRoutes, activeRoute, alerts } = useWasteData();
 
   // Calculations
   const totalBins = bins.length;
+  const hospitalBins = bins.filter((b) => b.binCategory === 'HOSPITAL' || b.hospitalName);
+  const criticalHospitalBins = hospitalBins.filter((b) => b.fillLevel >= 70 || b.status === 'critical');
   const avgBattery = Math.round(bins.reduce((acc, b) => acc + b.batteryLevel, 0) / (totalBins || 1));
   const avgFill = Math.round(bins.reduce((acc, b) => acc + b.fillLevel, 0) / (totalBins || 1));
-  const pendingVolumeLiters = Math.round(
-    criticalBins.reduce((acc, b) => acc + (b.capacityLiters * (b.fillLevel / 100)), 0)
-  );
+  
+  const totalFuelSaved = parseFloat(allRoutes.reduce((sum, r) => sum + r.fuelSavedLiters, 0).toFixed(2));
+  const totalCo2Saved = parseFloat(allRoutes.reduce((sum, r) => sum + r.co2SavedKg, 0).toFixed(2));
+  const totalDistance = parseFloat(allRoutes.reduce((sum, r) => sum + r.totalDistanceKm, 0).toFixed(2));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       
-      {/* Card 1: Total Smart Bins (Green) */}
+      {/* Card 1: Total Smart Bins & Healthcare Network (Green/Cyan) */}
       <div className="glass-card rounded-2xl p-4 relative overflow-hidden group bg-gradient-to-br from-emerald-950/60 via-slate-900/85 to-emerald-950/40 border border-emerald-500/40 hover:border-emerald-400/80 shadow-lg shadow-emerald-950/50 transition-all duration-300">
         <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-400/30 transition-all" />
         <div className="flex items-center justify-between relative z-10">
           <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-            Smart Bin Network
+            IoT Sensor Grid
           </span>
           <div className="w-9 h-9 rounded-xl bg-emerald-900/70 border border-emerald-500/50 flex items-center justify-center text-emerald-300 shadow-md shadow-emerald-500/30">
             <Trash2 className="w-4 h-4" />
@@ -43,7 +48,7 @@ export default function KpiCards() {
             {totalBins}
           </span>
           <span className="text-xs font-bold text-emerald-400 flex items-center">
-            <TrendingUp className="w-3.5 h-3.5 mr-0.5" /> 100% Online
+            <Building2 className="w-3.5 h-3.5 mr-1" /> {hospitalBins.length} Hospital
           </span>
         </div>
 
@@ -53,7 +58,7 @@ export default function KpiCards() {
         </div>
       </div>
 
-      {/* Card 2: Critical Overflow Bins (Red) */}
+      {/* Card 2: Critical Overflow & Biohazard Alerts (Red) */}
       <div className="glass-card rounded-2xl p-4 relative overflow-hidden group bg-gradient-to-br from-rose-950/70 via-slate-900/85 to-rose-950/50 border-2 border-rose-500/60 hover:border-rose-400/90 shadow-xl shadow-rose-950/60 transition-all duration-300">
         <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/25 rounded-full blur-2xl group-hover:bg-rose-400/40 transition-all" />
         <div className="flex items-center justify-between relative z-10">
@@ -71,7 +76,7 @@ export default function KpiCards() {
             {criticalBins.length}
           </span>
           <span className="text-xs font-bold text-rose-300">
-            ≥ 70% threshold
+            ({criticalHospitalBins.length} Med HazMat)
           </span>
         </div>
 
@@ -81,7 +86,34 @@ export default function KpiCards() {
         </div>
       </div>
 
-      {/* Card 3: AI Fuel & Carbon Savings (Green) */}
+      {/* Card 3: AI Multi-Vehicle Routes Dispatched (Blue/Indigo) */}
+      <div className="glass-card rounded-2xl p-4 relative overflow-hidden group bg-gradient-to-br from-indigo-950/60 via-slate-900/85 to-indigo-950/40 border border-indigo-500/40 hover:border-indigo-400/80 shadow-lg shadow-indigo-950/50 transition-all duration-300">
+        <div className="absolute top-0 right-0 w-28 h-28 bg-indigo-500/20 rounded-full blur-2xl group-hover:bg-indigo-400/30 transition-all" />
+        <div className="flex items-center justify-between relative z-10">
+          <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+            Multi-Stream Routes
+          </span>
+          <div className="w-9 h-9 rounded-xl bg-indigo-900/70 border border-indigo-500/50 flex items-center justify-center text-indigo-300 shadow-md shadow-indigo-500/30">
+            <Truck className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-baseline gap-2 relative z-10">
+          <span className="text-3xl font-black text-white tracking-tight">
+            {allRoutes.length} <span className="text-lg font-bold text-indigo-400">Loops</span>
+          </span>
+          <span className="text-xs font-bold text-indigo-300">
+            {totalDistance} km
+          </span>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-xs text-slate-300 pt-2.5 border-t border-indigo-900/50 relative z-10">
+          <span>Target Bins: <strong className="text-indigo-400 font-bold">{criticalBins.length}</strong></span>
+          <span>Active Fleet: <strong className="text-indigo-300 font-bold">{allRoutes.length} Vans/Trucks</strong></span>
+        </div>
+      </div>
+
+      {/* Card 4: AI Fuel & Carbon Savings (Green) */}
       <div className="glass-card rounded-2xl p-4 relative overflow-hidden group bg-gradient-to-br from-emerald-950/60 via-slate-900/85 to-emerald-950/40 border border-emerald-500/40 hover:border-emerald-400/80 shadow-lg shadow-emerald-950/50 transition-all duration-300">
         <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-400/30 transition-all" />
         <div className="flex items-center justify-between relative z-10">
@@ -96,10 +128,10 @@ export default function KpiCards() {
 
         <div className="mt-3 flex items-baseline gap-2 relative z-10">
           <span className="text-3xl font-black text-white tracking-tight">
-            {activeRoute.fuelSavedLiters} L
+            {totalFuelSaved} L
           </span>
           <span className="text-xs font-bold text-emerald-300">
-            / {activeRoute.co2SavedKg} kg CO₂
+            / {totalCo2Saved} kg CO₂
           </span>
         </div>
 
@@ -109,41 +141,6 @@ export default function KpiCards() {
         </div>
       </div>
 
-      {/* Card 4: Fleet Collection Manifest (Blue) */}
-      <div className="glass-card rounded-2xl p-4 relative overflow-hidden group bg-gradient-to-br from-blue-950/60 via-slate-900/85 to-blue-950/40 border border-blue-500/40 hover:border-blue-400/80 shadow-lg shadow-blue-950/50 transition-all duration-300">
-        <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-400/30 transition-all" />
-        <div className="flex items-center justify-between relative z-10">
-          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-            Optimized Dispatch Loop
-          </span>
-          <div className="w-9 h-9 rounded-xl bg-blue-900/70 border border-blue-500/50 flex items-center justify-center text-blue-300 shadow-md shadow-blue-500/30">
-            <Truck className="w-4 h-4" />
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-baseline gap-2 relative z-10">
-          <span className="text-3xl font-black text-white tracking-tight">
-            {activeRoute.totalDistanceKm} <span className="text-lg font-bold text-blue-400">km</span>
-          </span>
-          <span className="text-xs font-bold text-blue-300">
-            ~{activeRoute.estimatedMinutes} mins
-          </span>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-300 pt-2.5 border-t border-blue-900/50 relative z-10">
-          <span>Target Stops: <strong className="text-blue-400 font-bold">{activeRoute.optimizedStops.length} bins</strong></span>
-          <span>Pending Vol: <strong className="text-blue-300">~{pendingVolumeLiters}L</strong></span>
-        </div>
-      </div>
-
     </div>
-  );
-}
-
-function Sparkles({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-    </svg>
   );
 }

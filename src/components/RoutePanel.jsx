@@ -12,14 +12,22 @@ import {
   Sparkles, 
   CheckCircle2, 
   ChevronRight,
-  TrendingDown
+  TrendingDown,
+  Truck,
+  ShieldAlert,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 import { useWasteData } from '../context/WasteDataContext';
 import { printRouteManifest, exportBinsToCSV } from '../utils/exportUtils';
+import { getWasteTypeConfig } from '../data/wasteTypes';
 
 export default function RoutePanel() {
   const { 
+    allRoutes,
     activeRoute, 
+    activeRouteId,
+    setActiveRouteId,
     depot, 
     isDrivingRoute, 
     startRouteSimulation, 
@@ -38,23 +46,23 @@ export default function RoutePanel() {
   };
 
   return (
-    <div className="glass-card rounded-2xl p-4 border border-slate-800 flex flex-col h-full">
+    <div className="glass-card rounded-2xl p-4 border border-slate-800 flex flex-col h-full overflow-hidden">
       
       {/* Panel Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-indigo-950/80 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
             <Navigation className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              Optimized Route Engine
+              Multi-Stream Route Engine
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                 TSP 2-Opt
               </span>
             </h3>
             <p className="text-[11px] text-slate-400">
-              Targeting {activeRoute.optimizedStops.length} critical bins (≥70%)
+              {allRoutes.length} Dispatched Fleet Routes ({criticalBins.length} priority bins)
             </p>
           </div>
         </div>
@@ -78,56 +86,86 @@ export default function RoutePanel() {
         </div>
       </div>
 
-      {/* AI Optimization Efficiency Card */}
-      <div className="my-3 p-3 rounded-xl bg-gradient-to-br from-brand-950/40 via-slate-900/80 to-slate-900/80 border border-indigo-500/30 relative overflow-hidden">
-        <div className="flex items-center justify-between text-xs font-semibold text-indigo-300 mb-2">
-          <span className="flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            AI Optimization Gain
-          </span>
-          <span className="text-emerald-400 font-bold">+{activeRoute.efficiencyGainPercent}% Route Efficiency</span>
-        </div>
+      {/* Multi-Route Tabs / Switcher Pills */}
+      {allRoutes.length > 1 && (
+        <div className="flex items-center gap-1.5 py-2 overflow-x-auto no-scrollbar shrink-0 border-b border-slate-800/60">
+          {allRoutes.map((route) => {
+            const isSelected = activeRoute && activeRoute.id === route.id;
+            const wConfig = getWasteTypeConfig(route.wasteStream);
+            const isHospital = route.category === 'HOSPITAL';
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
-              <Fuel className="w-3 h-3 text-amber-400" /> Diesel Saved
+            return (
+              <button
+                key={route.id}
+                onClick={() => setActiveRouteId(route.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all border ${
+                  isSelected
+                    ? 'bg-slate-800 text-white shadow-md'
+                    : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 border-slate-800'
+                }`}
+                style={{
+                  borderColor: isSelected ? route.routeColor : undefined
+                }}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: route.routeColor }} />
+                <span>{route.vehicleShortName || route.vehicleId}</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-slate-900 text-slate-400 font-mono">
+                  {route.optimizedStops.length} stops
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Active Route Summary Card */}
+      {activeRoute && (
+        <div className="my-2.5 p-3 rounded-xl bg-gradient-to-br from-brand-950/40 via-slate-900/80 to-slate-900/80 border border-slate-800 relative overflow-hidden shrink-0">
+          <div className="flex items-center justify-between text-xs font-bold text-white mb-2">
+            <div className="flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5" style={{ color: activeRoute.routeColor }} />
+              <span>{activeRoute.vehicleName}</span>
             </div>
-            <div className="text-sm font-extrabold text-emerald-400 mt-0.5">
-              {activeRoute.fuelSavedLiters} L
+            <span className="text-emerald-400 text-[11px]">+{activeRoute.efficiencyGainPercent}% Efficiency</span>
+          </div>
+
+          {/* Vehicle Load Capacity Progress */}
+          <div className="mb-2.5">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+              <span>Vehicle Load Capacity:</span>
+              <strong className="text-slate-200">{activeRoute.totalLoadKg} / {activeRoute.maxCapacityKg} kg ({activeRoute.capacityUtilizationPercent}%)</strong>
+            </div>
+            <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+              <div 
+                className="h-full rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${activeRoute.capacityUtilizationPercent}%`,
+                  backgroundColor: activeRoute.capacityUtilizationPercent > 80 ? '#ef4444' : activeRoute.routeColor
+                }}
+              />
             </div>
           </div>
 
-          <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
-              <Leaf className="w-3 h-3 text-emerald-400" /> CO₂ Offset
+          <div className="grid grid-cols-3 gap-1.5 text-center">
+            <div className="bg-slate-950/70 p-1.5 rounded-lg border border-slate-800/80">
+              <div className="text-[9px] text-slate-400">Total Distance</div>
+              <div className="text-xs font-black text-white mt-0.5">{activeRoute.totalDistanceKm} km</div>
             </div>
-            <div className="text-sm font-extrabold text-emerald-400 mt-0.5">
-              {activeRoute.co2SavedKg} kg
+            <div className="bg-slate-950/70 p-1.5 rounded-lg border border-slate-800/80">
+              <div className="text-[9px] text-slate-400">Est. Time</div>
+              <div className="text-xs font-black text-indigo-400 mt-0.5">~{activeRoute.estimatedMinutes}m</div>
             </div>
-          </div>
-
-          <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
-              <Clock className="w-3 h-3 text-cyan-400" /> Time Saved
-            </div>
-            <div className="text-sm font-extrabold text-cyan-400 mt-0.5">
-              ~{activeRoute.timeSavedMinutes}m
+            <div className="bg-slate-950/70 p-1.5 rounded-lg border border-slate-800/80">
+              <div className="text-[9px] text-slate-400">CO₂ Saved</div>
+              <div className="text-xs font-black text-emerald-400 mt-0.5">{activeRoute.co2SavedKg} kg</div>
             </div>
           </div>
         </div>
-
-        {/* Distance Comparison Progress */}
-        <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
-          <span>Unoptimized: <strong className="text-slate-300">{activeRoute.unoptimizedDistanceKm} km</strong></span>
-          <ChevronRight className="w-3 h-3 text-indigo-400" />
-          <span>Optimized: <strong className="text-emerald-400">{activeRoute.totalDistanceKm} km</strong></span>
-        </div>
-      </div>
+      )}
 
       {/* Waypoint Steps List */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1 my-1">
-        {activeRoute.steps && activeRoute.steps.length > 0 ? (
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 my-1">
+        {activeRoute && activeRoute.steps && activeRoute.steps.length > 0 ? (
           activeRoute.steps.map((step, idx) => {
             const isCurrent = isDrivingRoute && currentWaypointIndex === idx;
             const isPassed = isDrivingRoute && currentWaypointIndex > idx;
@@ -136,7 +174,7 @@ export default function RoutePanel() {
               <div
                 key={idx}
                 onClick={() => step.bin && setSelectedBinId(step.bin.id)}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   isCurrent
                     ? 'bg-indigo-950/60 border-indigo-400 shadow-md shadow-indigo-500/20'
                     : isPassed
@@ -144,16 +182,16 @@ export default function RoutePanel() {
                     : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-start gap-2">
                   {/* Step Order Circle */}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
                     step.type === 'depot_start' || step.type === 'depot_end'
                       ? 'bg-brand-900 text-brand-300 border border-brand-500/40'
                       : isPassed
                       ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
                       : 'bg-slate-800 text-slate-200 border border-slate-700'
                   }`}>
-                    {isPassed ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.order}
+                    {isPassed ? <CheckCircle2 className="w-3 h-3" /> : step.order}
                   </div>
 
                   {/* Step Info */}
@@ -167,12 +205,12 @@ export default function RoutePanel() {
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    <p className="text-[10px] text-slate-400 truncate mt-0.5">
                       {step.description}
                     </p>
 
                     {step.bin && (
-                      <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
                           step.bin.fillLevel >= 70 ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
                         }`}>
@@ -189,30 +227,30 @@ export default function RoutePanel() {
             );
           })
         ) : (
-          <div className="text-center py-8 text-slate-500 text-xs">
-            No critical bins requiring immediate routing.
+          <div className="text-center py-6 text-slate-500 text-xs">
+            No critical bins in this waste category.
           </div>
         )}
       </div>
 
       {/* Simulation Trigger / Footer Bar */}
-      <div className="pt-3 border-t border-slate-800/80 mt-auto">
+      <div className="pt-2.5 border-t border-slate-800/80 mt-auto shrink-0">
         {!isDrivingRoute ? (
           <button
-            onClick={startRouteSimulation}
-            disabled={criticalBins.length === 0}
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-700 via-indigo-600 to-emerald-600 hover:from-brand-600 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => startRouteSimulation(activeRoute?.id)}
+            disabled={!activeRoute || activeRoute.optimizedStops.length === 0}
+            className="w-full py-2 rounded-xl bg-gradient-to-r from-brand-700 via-indigo-600 to-emerald-600 hover:from-brand-600 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Launch Automated Dispatch Run</span>
+            <span>Launch {activeRoute?.vehicleShortName || 'Vehicle'} Dispatch</span>
           </button>
         ) : (
           <button
             onClick={stopRouteSimulation}
-            className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 animate-pulse"
+            className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 animate-pulse"
           >
             <Square className="w-3.5 h-3.5 fill-current" />
-            <span>Halt Driver Simulation</span>
+            <span>Halt Active Simulation</span>
           </button>
         )}
       </div>

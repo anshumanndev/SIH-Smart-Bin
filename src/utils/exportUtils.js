@@ -3,28 +3,32 @@
 export function exportBinsToCSV(bins) {
   const headers = [
     "Bin ID",
+    "Category",
+    "Hospital / Facility",
     "Location Name",
+    "Waste Type",
     "Latitude",
     "Longitude",
     "Fill Level (%)",
     "Capacity (L)",
-    "Waste Type",
     "Battery (%)",
     "Temperature (°C)",
     "Gas PPM",
     "Status",
     "Last Emptied",
-    "Assigned Truck"
+    "Assigned Vehicle"
   ];
 
   const rows = bins.map((b) => [
     b.id,
+    b.binCategory || (b.hospitalName ? 'HOSPITAL' : 'GENERAL'),
+    `"${(b.hospitalName || 'N/A').replace(/"/g, '""')}"`,
     `"${b.name.replace(/"/g, '""')}"`,
+    b.wasteType,
     b.lat,
     b.lng,
     b.fillLevel,
     b.capacityLiters,
-    b.wasteType,
     b.batteryLevel,
     b.temperature,
     b.gasLevelPpm,
@@ -38,7 +42,7 @@ export function exportBinsToCSV(bins) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `EcoRoute_SmartBins_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute("download", `EcoRoute_WasteGrid_${new Date().toISOString().slice(0,10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -80,8 +84,8 @@ export function printRouteManifest(activeRoute, depot) {
         <div class="header">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-              <div class="title">EcoRoute™ Municipal Collection Manifest</div>
-              <div class="meta">SIH PS-14 Automated Dispatch Order | Generated: ${new Date().toLocaleString()}</div>
+              <div class="title">EcoRoute™ Dispatch Manifest: ${activeRoute.vehicleName || 'Collection Loop'}</div>
+              <div class="meta">Vehicle ID: ${activeRoute.vehicleId} | Category: ${activeRoute.category} | Generated: ${new Date().toLocaleString()}</div>
             </div>
             <div>
               <button onclick="window.print()" style="background:#1e3a8a; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Print Manifest</button>
@@ -103,8 +107,8 @@ export function printRouteManifest(activeRoute, depot) {
             <div class="summary-lbl">Est. Duration</div>
           </div>
           <div class="summary-card">
-            <div class="summary-val" style="color:#16a34a;">${activeRoute.fuelSavedLiters} L / ${activeRoute.co2SavedKg} kg</div>
-            <div class="summary-lbl">Fuel & CO₂ Saved</div>
+            <div class="summary-val" style="color:#16a34a;">${activeRoute.totalLoadKg} / ${activeRoute.maxCapacityKg} kg</div>
+            <div class="summary-lbl">Payload Capacity</div>
           </div>
         </div>
 
@@ -114,7 +118,7 @@ export function printRouteManifest(activeRoute, depot) {
             <tr>
               <th>#</th>
               <th>Action / Location</th>
-              <th>Waste Stream</th>
+              <th>Category / Stream</th>
               <th>Fill Level</th>
               <th>Leg Dist</th>
               <th>Cum. ETA</th>
@@ -129,7 +133,7 @@ export function printRouteManifest(activeRoute, depot) {
                   <strong>${s.title}</strong>
                   <div style="font-size:11px; color:#64748b;">${s.description}</div>
                 </td>
-                <td>${s.bin ? s.bin.wasteType : 'Depot Yard'}</td>
+                <td>${s.bin ? `${s.bin.wasteType} (${s.bin.binCategory || 'GENERAL'})` : 'Depot Yard'}</td>
                 <td>${s.bin ? `<span class="badge badge-${s.bin.status}">${s.bin.fillLevel}%</span>` : '-'}</td>
                 <td>${s.distanceFromPrevKm > 0 ? s.distanceFromPrevKm + ' km' : '0 km'}</td>
                 <td>+${s.etaMinutes}m</td>
@@ -140,7 +144,7 @@ export function printRouteManifest(activeRoute, depot) {
         </table>
 
         <div class="footer">
-          EcoRoute Intelligent Waste Fleet System • Central Municipal Authority • Driver Copy
+          EcoRoute Intelligent Waste Fleet System • Central Municipal Authority & Healthcare Logistics • Driver Copy
         </div>
       </body>
     </html>

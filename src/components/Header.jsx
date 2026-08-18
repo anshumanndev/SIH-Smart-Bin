@@ -10,7 +10,8 @@ import {
   AlertTriangle, 
   Clock, 
   Sparkles,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 import { useWasteData } from '../context/WasteDataContext';
 
@@ -22,6 +23,7 @@ export default function Header() {
     setActiveTab, 
     criticalBins, 
     alerts,
+    bins,
     soundEnabled, 
     toggleSound,
     isSimulating,
@@ -29,6 +31,10 @@ export default function Header() {
   } = useWasteData();
 
   const [timeStr, setTimeStr] = useState('');
+
+  const hospitalCriticalCount = bins.filter(
+    (b) => (b.binCategory === 'HOSPITAL' || b.hospitalName) && (b.fillLevel >= 70 || b.status === 'critical')
+  ).length;
 
   useEffect(() => {
     const updateTime = () => {
@@ -76,7 +82,7 @@ export default function Header() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium hidden sm:block">
-                Smart IoT Waste Intelligence & Route Optimization
+                Multi-Stream IoT Waste Intelligence & Route Optimization
               </p>
             </div>
           </div>
@@ -137,7 +143,7 @@ export default function Header() {
           {criticalBins.length > 0 ? (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-300">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <span>{criticalBins.length} Critical Overflow</span>
+              <span>{criticalBins.length} Critical ({hospitalCriticalCount} Bio)</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Navigation, 
   MapPin, 
@@ -12,24 +12,38 @@ import {
   Compass, 
   Sparkles,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  Layers,
+  Scale
 } from 'lucide-react';
 import { useWasteData } from '../context/WasteDataContext';
+import { VEHICLES } from '../data/vehicles';
+import { getWasteTypeConfig } from '../data/wasteTypes';
 import Bin3DVisualizer from './Bin3DVisualizer';
 
 export default function DriverHud() {
   const { 
-    activeRoute, 
+    allRoutes,
+    activeRoute,
+    activeRouteId,
+    setActiveRouteId,
+    vehicles,
+    vehicleLoads,
     depot, 
     emptyBin, 
     isDrivingRoute, 
     startRouteSimulation, 
     stopRouteSimulation,
-    currentWaypointIndex,
     completedStops
   } = useWasteData();
 
   const [activeDriverIndex, setActiveDriverIndex] = useState(1);
+
+  // Active vehicle configuration
+  const currentVehicle = useMemo(() => {
+    return vehicles.find((v) => v.id === activeRoute.vehicleId) || vehicles[0];
+  }, [vehicles, activeRoute]);
 
   const totalSteps = activeRoute.steps ? activeRoute.steps.length : 0;
   const currentStep = activeRoute.steps && activeRoute.steps[activeDriverIndex] 
@@ -51,48 +65,106 @@ export default function DriverHud() {
     }
   };
 
+  const isMedicalVehicle = currentVehicle.category === 'HOSPITAL' || currentVehicle.type.includes('MEDICAL') || currentVehicle.type.includes('SHARPS');
+
+  // Load calculations
+  const maxCap = currentVehicle.capacityKg || 4000;
+  const currentLoad = vehicleLoads[currentVehicle.id] || activeRoute.totalLoadKg || 0;
+  const remainingCap = Math.max(0, maxCap - currentLoad);
+  const loadPercentage = Math.min(100, Math.round((currentLoad / maxCap) * 100));
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fadeIn">
       
+      {/* Vehicle Fleet Selector Strip */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        {allRoutes.map((route) => {
+          const isSelected = activeRoute.id === route.id;
+          const v = vehicles.find((veh) => veh.id === route.vehicleId) || vehicles[0];
+          const isMed = route.category === 'HOSPITAL';
+
+          return (
+            <button
+              key={route.id}
+              onClick={() => {
+                setActiveRouteId(route.id);
+                setActiveDriverIndex(1);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all border shrink-0 ${
+                isSelected
+                  ? isMed
+                    ? 'bg-rose-950/80 border-rose-400 text-white shadow-lg shadow-rose-900/40'
+                    : 'bg-slate-800 border-indigo-400 text-white shadow-lg shadow-indigo-950/40'
+                  : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <div 
+                className="w-2.5 h-2.5 rounded-full" 
+                style={{ backgroundColor: route.routeColor }}
+              />
+              <span>{v.shortName}</span>
+              <span className="text-[10px] text-slate-400 font-mono">({route.optimizedStops.length} stops)</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Top Cockpit Header */}
-      <div className="glass-card rounded-3xl p-5 border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-slate-900/80 to-slate-900/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-600 border-2 border-emerald-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-            <Truck className="w-6 h-6" />
+      <div className={`glass-card rounded-3xl p-5 border-2 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        isMedicalVehicle
+          ? 'border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-slate-900/90 to-slate-900/90'
+          : 'border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-slate-900/90 to-slate-900/90'
+      }`}>
+        <div className="flex items-center gap-3.5">
+          <div className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-white shadow-lg ${
+            isMedicalVehicle
+              ? 'bg-rose-700 border-rose-400 shadow-rose-600/30'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-500/30'
+          }`}>
+            {isMedicalVehicle ? <ShieldAlert className="w-6 h-6" /> : <Truck className="w-6 h-6" />}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-900/80 border border-emerald-500/40 text-emerald-300">
-                Driver Navigation HUD
+              <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${
+                isMedicalVehicle
+                  ? 'bg-rose-900/80 border-rose-500/40 text-rose-300'
+                  : 'bg-emerald-900/80 border-emerald-500/40 text-emerald-300'
+              }`}>
+                {isMedicalVehicle ? 'Bio-Medical Van HUD' : 'Municipal Driver HUD'}
               </span>
-              <span className="text-xs font-mono text-slate-400">Truck #01 • Rajiv Sharma</span>
+              <span className="text-xs font-mono text-slate-400">
+                {currentVehicle.id} • {currentVehicle.driverName}
+              </span>
             </div>
             <h2 className="text-xl font-extrabold text-white mt-1">
-              Active Collection Loop Dispatch
+              {activeRoute.vehicleName}
             </h2>
           </div>
         </div>
 
         {/* Live Progress Badges */}
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-950/80 px-4 py-2 rounded-2xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-400 block uppercase font-mono">Stops Completed</span>
-            <strong className="text-base text-emerald-400 font-extrabold">
-              {completedStops.length} / {activeRoute.optimizedStops.length}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Stops Badge */}
+          <div className="bg-slate-950/80 px-3.5 py-2 rounded-2xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-400 block uppercase font-mono">Completed</span>
+            <strong className="text-sm text-emerald-400 font-extrabold">
+              {completedStops.length} / {activeRoute.optimizedStops.length} Stops
             </strong>
           </div>
 
-          <div className="bg-slate-950/80 px-4 py-2 rounded-2xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-400 block uppercase font-mono">Loop Distance</span>
-            <strong className="text-base text-white font-extrabold">
-              {activeRoute.totalDistanceKm} km
+          {/* Load Capacity Badge */}
+          <div className="bg-slate-950/80 px-3.5 py-2 rounded-2xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-400 block uppercase font-mono">Load Capacity</span>
+            <strong className="text-sm text-white font-extrabold">
+              {currentLoad} / {maxCap} kg
             </strong>
           </div>
 
-          <div className="bg-slate-950/80 px-4 py-2 rounded-2xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-400 block uppercase font-mono">Estimated Time</span>
-            <strong className="text-base text-indigo-400 font-extrabold">
-              ~{activeRoute.estimatedMinutes}m
+          {/* Loop Distance */}
+          <div className="bg-slate-950/80 px-3.5 py-2 rounded-2xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-400 block uppercase font-mono">Total Loop</span>
+            <strong className="text-sm text-indigo-400 font-extrabold">
+              {activeRoute.totalDistanceKm} km (~{activeRoute.estimatedMinutes}m)
             </strong>
           </div>
         </div>
@@ -104,16 +176,13 @@ export default function DriverHud() {
         {/* Left: Next Stop Action Target (Hero Card) */}
         <div className="lg:col-span-7 space-y-4">
           {currentStep ? (
-            <div className="glass-card rounded-3xl p-6 border-2 border-emerald-500/40 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shadow-2xl relative overflow-hidden">
+            <div className="glass-card rounded-3xl p-6 border-2 border-slate-700/80 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shadow-2xl relative overflow-hidden">
               
-              {/* Radar pulse background indicator */}
-              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" />
-
-              {/* Waypoint Step Counter */}
+              {/* Top Waypoint Index & ETA */}
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="flex items-center gap-1.5 text-emerald-400">
                   <Compass className="w-4 h-4 animate-spin-slow" />
-                  WAYPOINT {activeDriverIndex} OF {totalSteps - 1}
+                  WAYPOINT {activeDriverIndex} OF {Math.max(1, totalSteps - 1)}
                 </span>
                 <span className="font-mono text-slate-400">
                   ETA: +{currentStep.etaMinutes} mins
@@ -122,9 +191,11 @@ export default function DriverHud() {
 
               {/* Destination Location Title */}
               <div className="my-4">
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  {currentStep.title}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-2xl font-black text-white tracking-tight">
+                    {currentStep.title}
+                  </h3>
+                </div>
                 <p className="text-sm text-slate-300 mt-1">
                   {currentStep.description}
                 </p>
@@ -154,111 +225,92 @@ export default function DriverHud() {
                 </div>
               ) : (
                 <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center text-slate-400 my-4 text-xs">
-                  {currentStep.type === 'depot_start' ? '🚚 Municipal Base Yard Departure' : '🏁 Return to Sorting Yard'}
+                  {currentStep.type === 'depot_start' ? '🚚 Municipal Sorting Yard Departure' : '🏁 Return to Base & Discharge Collected Load'}
                 </div>
               )}
 
-              {/* HUGE ACTION BUTTON FOR DRIVER */}
-              <div className="pt-2 space-y-3">
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 mt-5">
                 <button
-                  onClick={handleNextStop}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 hover:from-emerald-500 hover:to-teal-400 text-white font-black text-base uppercase tracking-wider shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                  onClick={handlePrevStop}
+                  disabled={activeDriverIndex === 0}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700"
                 >
-                  <CheckCircle className="w-6 h-6" />
-                  <span>Mark Collected & Advance to Next Stop</span>
+                  Previous
                 </button>
 
-                {/* Step Switchers */}
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <button
-                    onClick={handlePrevStop}
-                    disabled={activeDriverIndex <= 0}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    ← Previous Waypoint
-                  </button>
-                  <button
-                    onClick={() => setActiveDriverIndex((prev) => Math.min(totalSteps - 1, prev + 1))}
-                    disabled={activeDriverIndex >= totalSteps - 1}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Skip to Next →
-                  </button>
-                </div>
+                <button
+                  onClick={handleNextStop}
+                  disabled={activeDriverIndex >= totalSteps - 1}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Mark Collected & Advance to Next Stop</span>
+                </button>
               </div>
 
             </div>
           ) : (
-            <div className="glass-card rounded-3xl p-8 text-center text-slate-400">
-              No active route loaded.
+            <div className="glass-card rounded-3xl p-8 text-center text-slate-500">
+              No active waypoint assigned for this vehicle.
             </div>
           )}
 
-          {/* Environmental Savings Sparkle Card */}
-          <div className="glass-card rounded-2xl p-4 border border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 to-slate-900/60 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-950 border border-indigo-500/40 text-indigo-400">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white">Driver Green Efficiency Score: 98/100</div>
-                <div className="text-[11px] text-slate-400">
-                  By adhering to the TSP route, you have saved <strong>{activeRoute.fuelSavedLiters} Liters</strong> of diesel today.
-                </div>
-              </div>
+          {/* Vehicle Load Gauge Card */}
+          <div className="glass-card rounded-2xl p-4 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <Scale className="w-4 h-4 text-indigo-400" />
+                Vehicle PayLoad Status
+              </span>
+              <span className={loadPercentage > 80 ? 'text-rose-400' : 'text-emerald-400'}>
+                {currentLoad} / {maxCap} kg ({loadPercentage}%)
+              </span>
+            </div>
+
+            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div 
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${loadPercentage}%`,
+                  backgroundColor: loadPercentage > 80 ? '#ef4444' : (isMedicalVehicle ? '#f59e0b' : '#10b981')
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <span>Remaining Payload: <strong className="text-white">{remainingCap} kg</strong></span>
+              <span>Plate: <strong className="text-slate-300 font-mono">{currentVehicle.plateNumber}</strong></span>
             </div>
           </div>
         </div>
 
-        {/* Right: Route Queue & 3D Sensor Visualizer */}
+        {/* Right: 3D Visualization of Current Target Bin */}
         <div className="lg:col-span-5 space-y-4">
-          
-          {/* Active Target Visualizer */}
-          {currentStep && currentStep.bin && (
-            <div className="glass-card rounded-3xl p-4 border border-slate-800 flex flex-col items-center justify-center">
-              <span className="text-[11px] font-mono uppercase text-slate-400 tracking-wider mb-2">
-                Live Sensor Telemetry for Target
-              </span>
+          <div className="glass-card rounded-3xl p-5 border border-slate-800 flex flex-col items-center justify-center text-center">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              Next Stop Sensor Chamber Preview
+            </div>
+
+            {currentStep && currentStep.bin ? (
               <Bin3DVisualizer 
-                fillLevel={currentStep.bin.fillLevel} 
+                fillLevel={currentStep.bin.fillLevel}
                 wasteType={currentStep.bin.wasteType}
-                height={160}
-                width={110}
+                height={180}
+                width={130}
               />
-            </div>
-          )}
+            ) : (
+              <div className="py-12 text-slate-500 text-xs">
+                Depot Location (No bin sensor active)
+              </div>
+            )}
 
-          {/* Turn-by-Turn Manifest List */}
-          <div className="glass-card rounded-3xl p-4 border border-slate-800">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
-              <span>Collection Waypoints Manifest</span>
-              <span className="font-mono text-indigo-400">{activeRoute.optimizedStops.length} stops</span>
-            </h4>
-
-            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-              {activeRoute.steps && activeRoute.steps.map((step, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setActiveDriverIndex(idx)}
-                  className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                    activeDriverIndex === idx
-                      ? 'bg-emerald-950/60 border-emerald-400 text-white font-bold shadow-md'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="truncate">
-                      {idx}. {step.title}
-                    </span>
-                    <span className="font-mono text-[10px] text-slate-500 shrink-0 ml-2">
-                      +{step.etaMinutes}m
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {currentStep && currentStep.bin && (
+              <div className="mt-3 text-xs text-slate-400">
+                Tank: <strong className="text-white">{currentStep.bin.capacityLiters}L</strong> • Waste: <strong className="text-indigo-300">{currentStep.bin.wasteType}</strong>
+              </div>
+            )}
           </div>
-
         </div>
 
       </div>
