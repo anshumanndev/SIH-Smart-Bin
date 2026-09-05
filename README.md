@@ -6,6 +6,8 @@ A comprehensive IoT-enabled waste management system designed to monitor bin fill
 
 ---
 
+Live Demo:https://sih-smart-bin-6q3d-theta.vercel.app/---
+
 ## 🎯 Problem Statement
 
 Waste management in urban areas faces several challenges:
@@ -107,13 +109,6 @@ npm run preview
 
 ---
 
-## ☁️ Deploy on Vercel
-
-1. Push your latest code to GitHub repository `anshumanndev/SIH-Smart-Bin`.
-2. Open [Vercel Dashboard](https://vercel.com/new).
-3. Click **Add New...** -> **Project** and import `anshumanndev/SIH-Smart-Bin`.
-4. Framework Preset will auto-detect as **Vite**.
-5. Click **Deploy**.
 
 ---
 
